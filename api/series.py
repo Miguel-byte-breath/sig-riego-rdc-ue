@@ -13,7 +13,8 @@ from huggingface_hub import hf_hub_download
 # ----------------------------
 # CONFIG (EDITA ESTO)
 # ----------------------------
-HF_REPO_ID = "TU_USUARIO_HF/sig-riego-rdc-raw"  # <-- CAMBIA ESTO
+HF_REPO_ID = "Miguel-byte-breath/sig-riego-rdc-raw"
+
 NC_FILES = [
     "cds_fc_2023_2024.nc",
     "cds_fc_2025_2025.nc",
