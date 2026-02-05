@@ -2,7 +2,7 @@ import json
 import math
 import calendar
 from datetime import datetime
-from pathlib import Path
+from http.server import BaseHTTPRequestHandler
 
 import numpy as np
 import xarray as xr
@@ -13,7 +13,7 @@ from huggingface_hub import hf_hub_download
 # ----------------------------
 # CONFIG (EDITA ESTO)
 # ----------------------------
-HF_REPO_ID = "miguel-byte-breath/sig-riego-rdc-raw"
+HF_REPO_ID = "TU_USUARIO_HF/sig-riego-rdc-raw"  # <-- CAMBIA ESTO
 NC_FILES = [
     "cds_fc_2023_2024.nc",
     "cds_fc_2025_2025.nc",
@@ -23,7 +23,7 @@ LEAD = 1  # leadtime_month
 
 
 # ----------------------------
-# Helpers de tu pipeline
+# Helpers (extract + ET0)
 # ----------------------------
 def lon_to_360(lon: float) -> float:
     return lon % 360.0
@@ -117,7 +117,6 @@ def extract_from_nc(nc_path: str, lat: float, lon: float) -> dict:
 
     sub = ds.isel(latitude=i_lat, longitude=i_lon)
 
-    # forecastMonth = 1
     fmonths = sub["forecastMonth"].values
     if np.ndim(fmonths) == 0:
         fmonths = np.array([int(fmonths)])
@@ -168,11 +167,7 @@ def extract_from_nc(nc_path: str, lat: float, lon: float) -> dict:
                 r[k] = round(float(r[k]), 3)
 
     return {
-        "meta": {
-            "input_file": nc_path,
-            "leadtime_month": LEAD,
-            "point": {"lat_req": lat, "lon_req": lon, "lat_sel": lat_sel, "lon_sel": lon_sel},
-        },
+        "meta": {"input_file": nc_path, "leadtime_month": LEAD, "point": {"lat_req": lat, "lon_req": lon, "lat_sel": lat_sel, "lon_sel": lon_sel}},
         "data": rows,
     }
 
@@ -181,14 +176,10 @@ def merge_series(objs: list[dict]) -> dict:
     by_date = {}
     for obj in objs:
         for r in obj["data"]:
-            by_date[r["fecha"]] = r  # last wins
+            by_date[r["fecha"]] = r
     data = [by_date[k] for k in sorted(by_date.keys())]
-
     meta0 = objs[0].get("meta", {})
-    return {
-        "meta": {**meta0, "merged_from": [o.get("meta", {}).get("input_file") for o in objs], "n_months": len(data)},
-        "data": data,
-    }
+    return {"meta": {**meta0, "merged_from": [o.get("meta", {}).get("input_file") for o in objs], "n_months": len(data)}, "data": data}
 
 
 def add_eto(series_obj: dict, lat: float) -> dict:
@@ -215,34 +206,49 @@ def add_eto(series_obj: dict, lat: float) -> dict:
             "eto_mes": round(eto_mes, 2),
         })
 
-    return {
-        "meta": {**(series_obj.get("meta") or {}), "metodo": "Hargreaves-Samani (FAO-56)", "lat": lat},
-        "data": out_rows,
-    }
+    return {"meta": {**(series_obj.get("meta") or {}), "metodo": "Hargreaves-Samani (FAO-56)", "lat": lat}, "data": out_rows}
+
+
+def build_series(lat: float, lon: float) -> dict:
+    local_paths = []
+    for fn in NC_FILES:
+        p = hf_hub_download(repo_id=HF_REPO_ID, repo_type="dataset", filename=fn)
+        local_paths.append(p)
+
+    extracted = [extract_from_nc(p, lat, lon) for p in local_paths]
+    merged = merge_series(extracted)
+    return add_eto(merged, lat)
 
 
 # ----------------------------
-# Vercel handler
+# Vercel entrypoint (IMPORTANT)
 # ----------------------------
-def handler(request):
-    try:
-        body = request.get_json()
-        lat = float(body["lat"])
-        lon = float(body["lon"])
-    except Exception:
-        return (json.dumps({"error": "Body debe ser JSON con {lat, lon}"}), 400, {"Content-Type": "application/json"})
+class handler(BaseHTTPRequestHandler):
+    def _send_json(self, status: int, payload: dict):
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
-    try:
-        # Descarga/cache de NetCDF desde HF (hf_hub_download cachea en disco automáticamente)
-        local_paths = []
-        for fn in NC_FILES:
-            p = hf_hub_download(repo_id=HF_REPO_ID, repo_type="dataset", filename=fn)
-            local_paths.append(p)
+    def do_POST(self):
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            raw = self.rfile.read(length).decode("utf-8") if length > 0 else "{}"
+            data = json.loads(raw)
 
-        extracted = [extract_from_nc(p, lat, lon) for p in local_paths]
-        merged = merge_series(extracted)
-        eto = add_eto(merged, lat)
+            lat = float(data["lat"])
+            lon = float(data["lon"])
+        except Exception:
+            return self._send_json(400, {"error": "Body debe ser JSON con {lat, lon} (números)"})
 
-        return (json.dumps(eto, ensure_ascii=False), 200, {"Content-Type": "application/json"})
-    except Exception as e:
-        return (json.dumps({"error": str(e)}, ensure_ascii=False), 500, {"Content-Type": "application/json"})
+        try:
+            out = build_series(lat, lon)
+            return self._send_json(200, out)
+        except Exception as e:
+            return self._send_json(500, {"error": str(e)})
+
+    def do_GET(self):
+        # útil para probar en navegador
+        return self._send_json(200, {"ok": True, "hint": "POST JSON {lat, lon} to this endpoint"})
