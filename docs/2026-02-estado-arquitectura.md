@@ -1,8 +1,21 @@
+# Checkpoint — Estado Arquitectura Proyecto
+Fecha: Febrero 2026
 
+## Infraestructura actual
 
+### GitHub
+Repositorio principal:
+Miguel-byte-breath/sig-riego-rdc-ue
 
-
-Este repo es:
+/api
+   ping.py        → test runtime OK
+   series.py      → backend principal
+/data
+   bunol_fc_...   → JSON de prueba (artefacto de validación)
+/requirements.txt
+/vercel.json
+/index
+/cultivos.json
 
 
 
