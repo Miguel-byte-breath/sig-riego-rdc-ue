@@ -16,9 +16,7 @@ Miguel-byte-breath/sig-riego-rdc-ue
 /vercel.json
 /index
 /cultivos.json
-
-
-
+```
 
 \- El código fuente oficial
 
