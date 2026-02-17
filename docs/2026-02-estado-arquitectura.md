@@ -6,7 +6,7 @@ Fecha: 16 de Febrero 2026
 ### GitHub
 Repositorio principal:
 Miguel-byte-breath/sig-riego-rdc-ue
-
+```bash
 /api
    ping.py        → test runtime OK
    series.py      → backend principal
@@ -16,6 +16,7 @@ Miguel-byte-breath/sig-riego-rdc-ue
 /vercel.json
 /index
 /cultivos.json
+
 
 
 
