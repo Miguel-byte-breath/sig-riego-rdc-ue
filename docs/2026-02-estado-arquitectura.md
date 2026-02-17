@@ -1,4 +1,4 @@
-# Checkpoint — Estado Arquitectura Proyecto
+```# Checkpoint — Estado Arquitectura Proyecto
 Fecha: 16 de Febrero 2026
 
 ## Infraestructura actual
