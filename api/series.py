@@ -1,8 +1,13 @@
+import os
 import json
 import math
 import calendar
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler
+
+os.environ["HF_HOME"] = "/tmp/hf"
+os.environ["HUGGINGFACE_HUB_CACHE"] = "/tmp/hf/hub"
+os.environ["XDG_CACHE_HOME"] = "/tmp/.cache"
 
 import numpy as np
 import xarray as xr
@@ -217,7 +222,7 @@ def build_series(lat: float, lon: float) -> dict:
             repo_id=HF_REPO_ID,
             repo_type="dataset",
             filename=fn,
-            cache_dir="/tmp",
+            cache_dir="/tmp/hf/hub",
         )
         local_paths.append(p)
 
