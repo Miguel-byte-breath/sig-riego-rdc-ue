@@ -213,7 +213,12 @@ def add_eto(series_obj: dict, lat: float) -> dict:
 def build_series(lat: float, lon: float) -> dict:
     local_paths = []
     for fn in NC_FILES:
-        p = hf_hub_download(repo_id=HF_REPO_ID, repo_type="dataset", filename=fn)
+        p = hf_hub_download(
+            repo_id=HF_REPO_ID,
+            repo_type="dataset",
+            filename=fn,
+            cache_dir="/tmp",
+        )
         local_paths.append(p)
 
     extracted = [extract_from_nc(p, lat, lon) for p in local_paths]
